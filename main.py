@@ -9,17 +9,22 @@ iteraciones por (mapa, algoritmo) que pide el enunciado.
 """
 
 import random
+from collections import defaultdict
+
 from grid import Grid
 from agent import Agent
 from environment import Simulation
 from algorithms.uninformed import bfs, uniform_cost_search
 from algorithms.informed import a_star, greedy_best_first
+from algorithms.genetic import genetic_tournament
+from progress import print_progress_bar
 
 ALGORITHMS = {
-    "BFS":                  bfs,
-    "UCS (Dijkstra)":       uniform_cost_search,
-    "A*":                   a_star,
-    "Greedy Best-First":    greedy_best_first,
+    "bfs":          bfs,
+    "dijkstra":     uniform_cost_search,
+    "a-star":       a_star,
+    "greedy":       greedy_best_first,
+    "genetic":      genetic_tournament
 }
 
 MAPS = [
@@ -54,16 +59,41 @@ def run_once(map_path: str, algo_name: str, n_agents: int = 15, seed: int = 0):
         grid                    = grid,
         agents                  = agents,
         search_fn               = ALGORITHMS[algo_name],
-        fire_spread_interval    = 1,
+        fire_spread_interval    = 3,
         max_turns               = 300,
     )
     return sim.run()
 
 
 if __name__ == "__main__":
+    iterations = 80
+
+
     for map in MAPS:
         print(f"for map {map}")
+        results = defaultdict(list)
+
         for name in ALGORITHMS:
-            result = run_once(map, name, n_agents=15, seed=1)
-            print(f"{name:20s} -> supervivencia: {result.survival_rate:.0%}  "
-                f"turnos hasta despeje: {result.turns_to_clear}")
+            avg = 0
+
+            print_progress_bar(0, iterations-1, f"{name}, {map}")
+            for seed in range(iterations):
+                result = run_once(map, name, n_agents=50, seed=seed)
+                print_progress_bar(seed, iterations-1, f"{name}, {map}")
+                #print(f"{name:20s} -> supervivencia: {result.survival_rate:.0%}  "
+                #    f"turnos hasta despeje: {result.turns_to_clear}")
+                #print(f"{result.survival_rate} {result.turns_to_clear}")
+                results[name].append(result)
+            print("")
+
+        for algo_name, algo_results in results.items():
+            avg_rate = 0
+            avg_turns = 0
+            for result in algo_results:
+                avg_rate += result.survival_rate
+                avg_turns += result.turns_to_clear
+
+            avg_rate /= len(algo_results)
+            avg_turns /= len(algo_results)
+
+            print(f"{algo_name}: -> supervivencia: {avg_rate:.3%}, turnos {avg_turns}")

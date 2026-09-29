@@ -85,16 +85,25 @@ class Simulation:
 
     def _step_all(self) -> None:
         self.grid.clear_occupancy()
-        for a in self.agents:
-            if not a.is_active():
-                continue
-            target = a.next_move()  # puede ser la misma celda = esperar
-            if self.grid.is_walkable(target):
-                a.advance(target)
-            self.grid.add_occupancy(a.pos)
+        active = [a for a in self.agents if a.is_active()]
+        cap = self.grid.capacity_per_cell
+        count = {}
+        for a in active:
+            count[a.pos] = count.get(a.pos, 0) + 1
 
+        for a in active:
+            target = a.next_move()
+            free = target in self.grid.exits or count.get(target, 0) < cap
+            if target != a.pos and self.grid.is_walkable(target) and free:
+                count[a.pos] -= 1
+                count[target] = count.get(target, 0) + 1
+                a.advance(target)
+            else:
+                a.turns_taken += 1  # waiting still costs a turn
+            self.grid.add_occupancy(a.pos)
             if a.pos in self.grid.exits:
                 a.mark_safe()
+                count[a.pos] -= 1
 
     def _resolve_fire_casualties(self) -> None:
         for a in self.agents:
